@@ -1,0 +1,83 @@
+---
+title: "Course Project - Practical Machine Learning"
+author: "Anil Muthineni"
+date: "October 1, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+
+In this project, we will the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. We will build a model to predict the type of activity performed from the sensor data.
+
+## Getting and Cleaning the data
+Setup R environment.
+```{r echo=TRUE}
+suppressWarnings(library(caret))
+suppressWarnings(library(randomForest))
+set.seed(123)
+```
+
+Download the training and test data from the urls mentioned in the project statement.
+```{r echo=TRUE}
+trainData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+```
+
+First 5 columns doesn't affect the class of the activity. So removing them. 
+```{r echo=TRUE}
+trainData <- trainData[, -(1:5)]
+testData <- testData[, -(1:5)]
+```
+
+Identify the columns with near zero variance and remove them.
+```{r echo=TRUE}
+nearZeroVarColumns <- nearZeroVar(trainData)
+trainData <- trainData[, -nearZeroVarColumns]
+testData <- testData[, -nearZeroVarColumns]
+```
+
+Identify the columns with mostly NA entries and remove them.
+```{r echo=TRUE}
+mostlyNaColumns <- sapply(trainData, function(x) mean(is.na(x))) > .9
+trainData <- trainData[, mostlyNaColumns == FALSE]
+testData <- testData[, mostlyNaColumns == FALSE]
+```
+
+The testing data given to us fro the url, is not labelled. Hence, split the trainData into training and testing data to help in evaluating out of sample error rate of the models we are going to build.
+```{r echo=TRUE}
+inTrain <- createDataPartition(y=trainData$classe, p=0.8, list=F)
+trainDataTrain <- trainData[inTrain, ]
+trainDataTest <- trainData[-inTrain, ]
+```
+
+## Model
+Use 4-fold cross validation and train a random forest model.
+```{r echo=TRUE}
+model <- train(classe ~ ., data=trainDataTrain, method="rf",
+               trControl=trainControl(method="cv", number=2))
+```
+
+Look at the final model after cross validation.
+```{r echo=TRUE}
+model$finalModel
+```
+
+Now, see the perfomance of the model on the test data.
+```{r echo=TRUE}
+confusionMatrix(trainDataTest$classe, predict(model, newdata=trainDataTest))
+```
+
+This shows that the model we trained has an out of sample accuracy of > 99.8%. Hence, we are going to settle with this model and make predictions on the test set given in the project description.
+
+## Predictions on Test set 
+```{r echo=TRUE}
+predict(model, newdata=testData)
+```
+
+## Appendix
+More information about the data is available from the website here: http://groupware.les.inf.puc-rio.br/har
